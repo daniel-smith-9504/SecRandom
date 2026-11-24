@@ -14,6 +14,7 @@
   <data name="C_RollCallSettings" xml:space="preserve"><value>点呼設定</value></data>
   <data name="O_AllGroups" xml:space="preserve"><value>すべてのメンバーから抽選</value></data>
   <data name="O_AllGenders" xml:space="preserve"><value>すべての性別から抽選</value></data>
+  <data name="O_AllTags" xml:space="preserve"><value>すべてのタグから抽選</value></data>
   <data name="M_Ready" xml:space="preserve"><value>準備完了</value></data>
   <data name="M_ResetDone" xml:space="preserve"><value>点呼記録をリセットしました</value></data>
   <data name="M_AutoResetDone" xml:space="preserve"><value>点呼記録を自動リセットして抽選を続けます</value></data>

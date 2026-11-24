@@ -60,6 +60,9 @@
   <data name="O_AllGenders" xml:space="preserve">
      <value>Draw from all genders</value>
   </data>
+  <data name="O_AllTags" xml:space="preserve">
+     <value>Draw from all tags</value>
+  </data>
   <data name="M_Ready" xml:space="preserve">
      <value>Ready</value>
   </data>

@@ -1,4 +1,5 @@
 using SecRandom.Core.Enums.Configs;
+using SecRandom.Core.Services.Profiles;
 using SecRandom.Shared.Models.Profile;
 
 namespace SecRandom.Core.Services.Draw;
@@ -10,11 +11,19 @@ namespace SecRandom.Core.Services.Draw;
 /// </summary>
 public static class DrawCandidateFilter
 {
-    public static bool MatchesScope(Student student, string groupScope, string genderScope)
+    public static bool MatchesScope(Student student, string groupScope, string genderScope, string tagScope = "")
     {
         return student.IsCandidate
                && (string.IsNullOrEmpty(groupScope) || student.Group == groupScope)
-               && (string.IsNullOrEmpty(genderScope) || student.Gender == genderScope);
+               && (string.IsNullOrEmpty(genderScope) || student.Gender == genderScope)
+               && (string.IsNullOrWhiteSpace(tagScope) || HasTag(student, tagScope));
+    }
+
+    /// <summary>成员标签按导入时的同一套分隔符切分，命中任一标签即视为属于该标签范围。</summary>
+    public static bool HasTag(Student student, string tag)
+    {
+        return !string.IsNullOrWhiteSpace(tag)
+               && RosterImportParser.SplitTags(student.Tags).Contains(tag, StringComparer.Ordinal);
     }
 
     public static List<Student> FilterEligibleStudents(
@@ -23,10 +32,11 @@ public static class DrawCandidateFilter
         string genderScope,
         IReadOnlyDictionary<string, int> temporaryCounts,
         int repeatThreshold,
-        Func<Student, bool>? additionalFilter = null)
+        Func<Student, bool>? additionalFilter = null,
+        string tagScope = "")
     {
         return students
-            .Where(student => MatchesScope(student, groupScope, genderScope))
+            .Where(student => MatchesScope(student, groupScope, genderScope, tagScope))
             .Where(student => additionalFilter is null || additionalFilter(student))
             .Where(student => !DrawRepeatPolicy.HasReachedLimit(
                 temporaryCounts.GetValueOrDefault(ProfileRecordIdentity.EnsureRecordId(student)),

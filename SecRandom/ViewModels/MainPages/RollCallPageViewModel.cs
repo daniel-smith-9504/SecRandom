@@ -53,6 +53,7 @@ public sealed partial class RollCallPageViewModel : ViewModelBase, IDisposable
     private static string AllGroupsOption => SR.O_AllGroups;
     private static string DrawGroupsOption => SR.O_DrawGroups;
     private static string AllGendersOption => SR.O_AllGenders;
+    private static string AllTagsOption => SR.O_AllTags;
     private static string DefaultHistoryGroupOption => SR.O_HistoryGroupDefault;
 
     /// <summary>「不使用名单」下拉项：选中它即进入数字范围抽取模式。</summary>
@@ -93,6 +94,7 @@ public sealed partial class RollCallPageViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private int _numberRangeEnd = 50;
     [ObservableProperty] private string _selectedGroup = AllGroupsOption;
     [ObservableProperty] private string _selectedGender = AllGendersOption;
+    [ObservableProperty] private string _selectedTag = AllTagsOption;
     [ObservableProperty] private string _selectedHistoryGroup = DefaultHistoryGroupOption;
     [ObservableProperty] private int _drawCount = 1;
     [ObservableProperty] private string _statusText = SR.M_Ready;
@@ -182,6 +184,7 @@ public sealed partial class RollCallPageViewModel : ViewModelBase, IDisposable
     public ObservableCollection<string> StudentListNames { get; } = [];
     public ObservableCollection<string> GroupOptions { get; } = [AllGroupsOption];
     public ObservableCollection<string> GenderOptions { get; } = [AllGendersOption];
+    public ObservableCollection<string> TagOptions { get; } = [AllTagsOption];
     public ObservableCollection<string> HistoryGroupOptions { get; } = [DefaultHistoryGroupOption];
     public ObservableCollection<RollCallResultItem> ResultItems { get; } = [];
     public ObservableCollection<RollCallRemainingItem> RemainingItems { get; } = [];
@@ -227,6 +230,9 @@ public sealed partial class RollCallPageViewModel : ViewModelBase, IDisposable
 
     /// <summary>数字模式下没有分组维度，分组选择器随隐藏。</summary>
     public bool IsGroupSelectorVisible => MoreSettings.RollCallRangeSelector && !IsNumberMode;
+
+    /// <summary>标签选择器只在名单里存在标签时出现，数字模式下随隐藏。</summary>
+    public bool IsTagSelectorVisible => !IsNumberMode && TagOptions.Count > 1;
 
     /// <summary>数字模式没有「剩余名单」可看，按钮随隐藏。</summary>
     public bool IsRemainingListButtonVisible => MoreSettings.RollCallRemainingButton && !IsNumberMode;
@@ -286,6 +292,7 @@ public string PluginAnimationId => AnimationSettings.PluginAnimationId;
     private bool IsGroupDraw => SelectedGroup == DrawGroupsOption && IsGroupSelectorVisible;
     private string CurrentGroupScope => SelectedGroup == AllGroupsOption || IsGroupDraw ? string.Empty : SelectedGroup;
     private string CurrentGenderScope => SelectedGender == AllGendersOption ? string.Empty : SelectedGender;
+    private string CurrentTagScope => SelectedTag == AllTagsOption ? string.Empty : SelectedTag;
 
     /// <summary>
     ///     本次抽取要读写的记录组；<see langword="null" /> 表示不做组隔离（看全部历史）。
@@ -399,6 +406,11 @@ public string PluginAnimationId => AnimationSettings.PluginAnimationId;
     }
 
     partial void OnSelectedGenderChanged(string value)
+    {
+        RefreshCounts();
+    }
+
+    partial void OnSelectedTagChanged(string value)
     {
         RefreshCounts();
     }
@@ -581,7 +593,8 @@ public string PluginAnimationId => AnimationSettings.PluginAnimationId;
 
             var courseName = _linkageDrawCoordinator.GetCourseName();
             var drawTask = _rollCallDrawService.DrawAsync(new RollCallDrawRequest(
-                SelectedStudentListName, CurrentGroupScope, CurrentGenderScope, count, courseName, historyGroup, IsGroupDraw));
+                SelectedStudentListName, CurrentGroupScope, CurrentGenderScope, count, courseName, historyGroup,
+                IsGroupDraw, CurrentTagScope));
             var previewTask = ShowPreviewAsync(presentationCandidates, count, MusicSettings.AnimationMusic);
             List<Student> drawnStudents;
             try
@@ -927,6 +940,7 @@ public string PluginAnimationId => AnimationSettings.PluginAnimationId;
 
         SelectedGender = request.Gender ?? AllGendersOption;
         SelectedGroup = request.Group ?? AllGroupsOption;
+        SelectedTag = AllTagsOption;
         RefreshCounts();
         DrawCount = request.Count ?? 1;
 
@@ -1446,12 +1460,16 @@ public string PluginAnimationId => AnimationSettings.PluginAnimationId;
         ReplaceOptions(GroupOptions, AllGroupsOption, students.Select(s => s.Group));
         GroupOptions.Insert(1, DrawGroupsOption);
         ReplaceOptions(GenderOptions, AllGendersOption, students.Select(s => s.Gender));
+        ReplaceOptions(TagOptions, AllTagsOption, students.SelectMany(s => RosterImportParser.SplitTags(s.Tags)));
         RefreshHistoryGroupOptions();
 
         if (!GroupOptions.Contains(SelectedGroup))
             SelectedGroup = AllGroupsOption;
         if (!GenderOptions.Contains(SelectedGender))
             SelectedGender = AllGendersOption;
+        if (!TagOptions.Contains(SelectedTag))
+            SelectedTag = AllTagsOption;
+        OnPropertyChanged(nameof(IsTagSelectorVisible));
     }
 
     /// <summary>
@@ -1617,12 +1635,20 @@ public string PluginAnimationId => AnimationSettings.PluginAnimationId;
         return CurrentStudentList?.Students.Where(student => student.IsCandidate) ?? [];
     }
 
+    /// <summary>按当前标签范围收窄候选池；组抽取也在收窄后的成员上重新组队。</summary>
+    private IEnumerable<Student> GetTagScopedStudents()
+    {
+        return string.IsNullOrEmpty(CurrentTagScope)
+            ? GetVisibleStudents()
+            : GetVisibleStudents().Where(student => DrawCandidateFilter.HasTag(student, CurrentTagScope));
+    }
+
     private IEnumerable<Student> GetCandidates()
     {
         if (IsGroupDraw)
-            return GroupDrawCandidates.Build(GetVisibleStudents(), CurrentGenderScope)
+            return GroupDrawCandidates.Build(GetTagScopedStudents(), CurrentGenderScope)
                 .Select(group => new Student { Group = group.Name, Name = group.Name, RecordId = Guid.NewGuid() });
-        return GetVisibleStudents().Where(MatchesSelection);
+        return GetTagScopedStudents().Where(MatchesSelection);
     }
 
     private IReadOnlyList<Student> BuildGroupPresentationCandidates(IReadOnlyList<Student> candidates)
@@ -1630,7 +1656,7 @@ public string PluginAnimationId => AnimationSettings.PluginAnimationId;
         if (!IsGroupDraw || Config.EffectiveRollCallSettings.GroupMemberDisplay == GroupMemberDisplayMode.GroupOnly)
             return candidates;
 
-        var groups = GroupDrawCandidates.Build(GetVisibleStudents(), CurrentGenderScope)
+        var groups = GroupDrawCandidates.Build(GetTagScopedStudents(), CurrentGenderScope)
             .ToDictionary(group => group.Name, StringComparer.Ordinal);
         var random = new CryptoRandomSource();
         return candidates.Select(candidate =>
@@ -1647,18 +1673,20 @@ public string PluginAnimationId => AnimationSettings.PluginAnimationId;
         if (IsGroupDraw)
         {
             var settings = Config.EffectiveRollCallSettings;
-            var groups = GroupDrawCandidates.Build(GetVisibleStudents(), CurrentGenderScope);
+            var groups = GroupDrawCandidates.Build(GetTagScopedStudents(), CurrentGenderScope);
             return GroupDrawCandidates.Eligible(groups, _temporaryRecordService.GetGroupCounts(SelectedStudentListName),
                     settings.DrawMode == DrawMode.Orchestrated ? settings.SampledDrawMode : settings.DrawMode, settings.HalfRepeat)
                 .Select(group => new Student { Group = group.Name, Name = group.Name });
         }
-        var source = candidates ?? GetVisibleStudents();
+        var source = candidates ?? GetTagScopedStudents();
         var threshold = DrawRepeatPolicy.ResolveThreshold(Config.EffectiveRollCallSettings.DrawMode, Config.EffectiveRollCallSettings.HalfRepeat);
         var counts = _temporaryRecordService.GetStudentCounts(SelectedStudentListName, CurrentGenderScope, CurrentGroupScope);
-        return DrawCandidateFilter.FilterEligibleStudents(source, CurrentGroupScope, CurrentGenderScope, counts, threshold);
+        return DrawCandidateFilter.FilterEligibleStudents(source, CurrentGroupScope, CurrentGenderScope, counts, threshold,
+            tagScope: CurrentTagScope);
     }
 
-    private bool MatchesSelection(Student student) => DrawCandidateFilter.MatchesScope(student, CurrentGroupScope, CurrentGenderScope);
+    private bool MatchesSelection(Student student) =>
+        DrawCandidateFilter.MatchesScope(student, CurrentGroupScope, CurrentGenderScope, CurrentTagScope);
 
     private bool HasReachedRepeatLimit(Student student)
     {

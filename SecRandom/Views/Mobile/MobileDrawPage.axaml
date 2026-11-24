@@ -110,7 +110,7 @@
                             <Button.Flyout>
                                 <Flyout>
                                     <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled">
-                                        <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,*"
+                                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,*"
                                               RowSpacing="8" ColumnSpacing="8" Width="300">
                                             <sr:Field Grid.Row="0" Grid.Column="0" Label="{x:Static langs:Resources.S_Group}">
                                                 <ComboBox ItemsSource="{Binding GroupOptions}" SelectedItem="{Binding SelectedGroup}" />
@@ -118,15 +118,20 @@
                                             <sr:Field Grid.Row="0" Grid.Column="1" Label="{x:Static langs:Resources.S_Gender}">
                                                 <ComboBox ItemsSource="{Binding GenderOptions}" SelectedItem="{Binding SelectedGender}" />
                                             </sr:Field>
-                                            <Button Grid.Row="1" Grid.Column="0" Content="{x:Static langs:Resources.C_ResetRange}"
+                                            <sr:Field Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                                      Label="{x:Static langs:Resources.S_Tags}"
+                                                      IsVisible="{Binding IsTagSelectorVisible}">
+                                                <ComboBox ItemsSource="{Binding TagOptions}" SelectedItem="{Binding SelectedTag}" />
+                                            </sr:Field>
+                                            <Button Grid.Row="2" Grid.Column="0" Content="{x:Static langs:Resources.C_ResetRange}"
                                                     Command="{Binding ResetDrawHistoryCommand}" />
-                                            <Button Grid.Row="1" Grid.Column="1" Content="{x:Static langs:Resources.C_ClearTemporaryRecords}"
+                                            <Button Grid.Row="2" Grid.Column="1" Content="{x:Static langs:Resources.C_ClearTemporaryRecords}"
                                                     Click="ClearRollCallTemporaryRecords_OnClick" />
-                                            <Button Grid.Row="2" Grid.Column="0" Content="{x:Static langs:Resources.C_ManageStudentList}"
+                                            <Button Grid.Row="3" Grid.Column="0" Content="{x:Static langs:Resources.C_ManageStudentList}"
                                                     Click="OpenRollCallListSettings_OnClick" />
-                                            <Button Grid.Row="2" Grid.Column="1" Content="{x:Static langs:Resources.C_DrawSettings}"
+                                            <Button Grid.Row="3" Grid.Column="1" Content="{x:Static langs:Resources.C_DrawSettings}"
                                                     Command="{Binding OpenRollCallSettingsCommand}" />
-                                            <Button Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                                            <Button Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
                                                     Content="{x:Static langs:Resources.C_RemainingList}"
                                                     Click="ShowRollCallRemaining_OnClick" />
                                         </Grid>

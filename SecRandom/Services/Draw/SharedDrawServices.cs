@@ -32,7 +32,7 @@ public sealed record RollCallDrawSnapshot(
 }
 
 public sealed record RollCallDrawRequest(string ListName, string Group, string Gender, int Count, string CourseName,
-    string? HistoryGroup = null, bool DrawGroups = false);
+    string? HistoryGroup = null, bool DrawGroups = false, string Tag = "");
 
 public sealed record RollCallDrawResult(
     IReadOnlyList<Student> Students,
@@ -124,10 +124,10 @@ public sealed class RollCallDrawService(
 {
     private static readonly CryptoRandomSource FallbackRandom = new();
 
-    public RollCallDrawSnapshot GetSnapshot(string group, string gender)
+    public RollCallDrawSnapshot GetSnapshot(string group, string gender, string tag = "")
     {
         var students = profileService.CurrentStudentList?.Students ?? [];
-        var candidates = students.Where(student => DrawCandidateFilter.MatchesScope(student, group, gender))
+        var candidates = students.Where(student => DrawCandidateFilter.MatchesScope(student, group, gender, tag))
             .OrderForList().ToArray();
         // 插件候选集过滤器在"谁可能被抽到"这一层生效：预览与真正抽签共用同一份候选集，
         // 抽取证明与历史因此也只覆盖过滤后的范围。
@@ -135,7 +135,7 @@ public sealed class RollCallDrawService(
         var threshold = DrawRepeatPolicy.ResolveThreshold(configHandler.Data.EffectiveRollCallSettings.DrawMode,
             configHandler.Data.EffectiveRollCallSettings.HalfRepeat);
         var remaining = DrawCandidateFilter.FilterEligibleStudents(candidates, group, gender,
-                temporaryRecords.GetStudentCounts(GetListName(), gender, group), threshold)
+                temporaryRecords.GetStudentCounts(GetListName(), gender, group), threshold, tagScope: tag)
             .OrderForList().ToArray();
         return new RollCallDrawSnapshot(
             profileCatalogManager.GetStudentListNames(),
@@ -161,7 +161,7 @@ public sealed class RollCallDrawService(
         SwitchList(request.ListName);
         if (request.DrawGroups)
             return await DrawGroupsAsync(request, cancellationToken).ConfigureAwait(false);
-        var snapshot = GetSnapshot(request.Group, request.Gender);
+        var snapshot = GetSnapshot(request.Group, request.Gender, request.Tag);
         var count = Math.Clamp(request.Count, 1, snapshot.RemainingCount);
         if (snapshot.RemainingCount == 0)
             return null;
@@ -275,7 +275,7 @@ public sealed class RollCallDrawService(
     private async Task<RollCallDrawResult?> DrawGroupsAsync(RollCallDrawRequest request, CancellationToken cancellationToken)
     {
         var settings = configHandler.Data.EffectiveRollCallSettings;
-        var groups = GroupDrawCandidates.Build(GetSnapshot("", request.Gender).Candidates, request.Gender);
+        var groups = GroupDrawCandidates.Build(GetSnapshot("", request.Gender, request.Tag).Candidates, request.Gender);
         var eligible = GroupDrawCandidates.Eligible(groups, temporaryRecords.GetGroupCounts(GetListName()),
             settings.DrawMode == DrawMode.Orchestrated ? settings.SampledDrawMode : settings.DrawMode, settings.HalfRepeat);
         if (eligible.Count == 0 || request.Count <= 0 || request.Count > eligible.Count)

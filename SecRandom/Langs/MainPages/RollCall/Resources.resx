@@ -45,6 +45,9 @@
   <data name="O_AllGenders" xml:space="preserve">
     <value>抽取全部性别</value>
   </data>
+  <data name="O_AllTags" xml:space="preserve">
+    <value>抽取全部标签</value>
+  </data>
   <data name="M_Ready" xml:space="preserve">
     <value>准备就绪</value>
   </data>
